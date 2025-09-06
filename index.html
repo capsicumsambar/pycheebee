@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pychee Bee - Spelling Practice</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Start Screen -->
+      <div class="start-screen" id="startScreen">
+        <div class="logo">🐝</div>
+        <h1>Pychee Bee</h1>
+        <p class="tagline">Master spelling, one word at a time!</p>
+        <div class="set-selection">
+          <h3>Choose Your Practice Set</h3>
+          <div class="set-buttons">
+            <button class="set-btn" onclick="startGame(1)">
+              Set A-C<span>Accommodate to Conscience</span>
+            </button>
+            <button class="set-btn" onclick="startGame(2)">
+              Set D-G<span>Definitely to Guarantee</span>
+            </button>
+            <button class="set-btn" onclick="startGame(3)">
+              Set H-M<span>Harassment to Mischievous</span>
+            </button>
+            <button class="set-btn" onclick="startGame(4)">
+              Set N-R<span>Necessary to Rhythm</span>
+            </button>
+            <button class="set-btn" onclick="startGame(5)">
+              Set S-Z<span>Separate to Weird</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Screen -->
+      <div class="game-screen" id="gameScreen" style="display: none">
+        <!-- Compact Header -->
+        <header>
+          <div class="header-content">
+            <button class="back-btn" onclick="backToMenu()">←</button>
+            <div class="score-info">
+              <span class="bee-icon">🐝</span>
+              <span class="question-num"
+                >Q<span id="currentQuestion">1</span>/10</span
+              >
+              <span class="score-badge"><span id="score">0</span>✓</span>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+        </header>
+
+        <!-- Compact Game Area -->
+        <main class="game-area">
+          <div class="game-content">
+            <!-- Left side - Main game -->
+            <div class="main-section">
+              <!-- Pronunciation Card -->
+              <div class="pronunciation-card">
+                <div class="phonetic" id="phonetic">/pronunciation/</div>
+                <button
+                  class="listen-btn"
+                  id="listenBtn"
+                  onclick="pronounceWord()"
+                >
+                  <span>🔊</span> <span class="btn-text">Play Sound</span>
+                </button>
+              </div>
+
+              <!-- Word Options Grid -->
+              <div class="word-options" id="wordOptions">
+                <!-- Options will be inserted here -->
+              </div>
+
+              <!-- Compact Action Buttons -->
+              <div class="action-buttons">
+                <button
+                  class="action-btn"
+                  onclick="showInfo('definition')"
+                  title="Definition"
+                >
+                  <span>📖</span>
+                </button>
+                <button
+                  class="action-btn"
+                  onclick="showInfo('origin')"
+                  title="Origin"
+                >
+                  <span>🌍</span>
+                </button>
+                <button
+                  class="action-btn"
+                  onclick="speakSentence()"
+                  title="Hear Example"
+                >
+                  <span>🗣️</span>
+                </button>
+                <button
+                  class="action-btn"
+                  onclick="showInfo('partOfSpeech')"
+                  title="Part of Speech"
+                >
+                  <span>🏷️</span>
+                </button>
+              </div>
+
+              <!-- Info Display -->
+              <div class="info-display" id="infoDisplay"></div>
+            </div>
+
+            <!-- Right side - Feedback and Car Fact -->
+            <div class="side-section" id="sideSection" style="display: none">
+              <!-- Result Feedback -->
+              <div class="result-feedback" id="resultFeedback">
+                <div class="result-icon" id="resultIcon"></div>
+                <div class="result-text" id="resultText"></div>
+                <div class="correct-spelling" id="correctSpelling"></div>
+              </div>
+
+              <!-- Car Fact -->
+              <div class="car-fact" id="carFact">
+                <div class="car-fact-header">🏎️ Car Fact!</div>
+                <p id="carFactText"></p>
+              </div>
+
+              <!-- Next Button -->
+              <button class="next-btn" id="nextBtn" onclick="nextQuestion()">
+                Next →
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div class="game-over" id="gameOver" style="display: none">
+        <div class="trophy">🏆</div>
+        <h2>Great Job!</h2>
+        <div class="final-score">
+          You scored <span id="finalScore">0</span> out of 10!
+        </div>
+        <div class="performance-message" id="performanceMessage"></div>
+        <div class="star-rating" id="starRating"></div>
+        <button class="play-again-btn" onclick="backToMenu()">
+          Choose Another Set
+        </button>
+      </div>
+    </div>
+
+    <script src="words-database.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
