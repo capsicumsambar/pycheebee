@@ -1,331 +1,287 @@
-// Game state management
-let gameState = {
-  currentSet: null,
-  currentWordIndex: 0,
-  currentWord: null,
-  score: 0,
-  answeredQuestions: [],
-  usedCarFacts: [],
-  speechVoice: null,
-};
+// Game state variables
+let currentSet = null;
+let currentWordIndex = 0;
+let score = 0;
+let currentWord = null;
+let hintsUsed = false;
+let answeredWords = [];
 
-// Initialize speech synthesis
-function initSpeech() {
-  if ("speechSynthesis" in window) {
-    // Wait for voices to load
-    const loadVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      // Prefer US English voice
-      gameState.speechVoice =
-        voices.find(
-          (voice) => voice.lang === "en-US" && voice.name.includes("Female")
-        ) ||
-        voices.find((voice) => voice.lang === "en-US") ||
-        voices.find((voice) => voice.lang.startsWith("en")) ||
-        voices[0];
-    };
+// Wait for DOM to load
+document.addEventListener("DOMContentLoaded", function () {
+  // Set button event listeners
+  document
+    .getElementById("set1-btn")
+    .addEventListener("click", () => startSet("set1"));
+  document
+    .getElementById("set2-btn")
+    .addEventListener("click", () => startSet("set2"));
+  document
+    .getElementById("set3-btn")
+    .addEventListener("click", () => startSet("set3"));
+  document
+    .getElementById("set4-btn")
+    .addEventListener("click", () => startSet("set4"));
+  document
+    .getElementById("set5-btn")
+    .addEventListener("click", () => startSet("set5"));
 
-    // Load voices initially
-    loadVoices();
+  // Game controls
+  document
+    .getElementById("listen-btn")
+    .addEventListener("click", pronounceWord);
+  document.getElementById("back-btn").addEventListener("click", backToMenu);
+  document.getElementById("next-btn").addEventListener("click", nextWord);
+  document
+    .getElementById("play-again-btn")
+    .addEventListener("click", () => location.reload());
 
-    // Some browsers need this event
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-  }
-}
-
-// Initialize on page load
-window.addEventListener("DOMContentLoaded", () => {
-  initSpeech();
+  // Hint buttons
+  document
+    .getElementById("hint-definition")
+    .addEventListener("click", () => showHint("definition"));
+  document
+    .getElementById("hint-origin")
+    .addEventListener("click", () => showHint("origin"));
+  document
+    .getElementById("hint-example")
+    .addEventListener("click", () => showHint("example"));
+  document
+    .getElementById("hint-part")
+    .addEventListener("click", () => showHint("partOfSpeech"));
 });
 
-// Start game with selected set
-function startGame(setNumber) {
-  gameState.currentSet = WORD_SETS[setNumber];
-  gameState.currentWordIndex = 0;
-  gameState.score = 0;
-  gameState.answeredQuestions = [];
-  gameState.usedCarFacts = [];
-
-  // Shuffle the words in the set
-  gameState.currentSet.words = shuffleArray([...gameState.currentSet.words]);
+function startSet(setName) {
+  currentSet = wordSets[setName];
+  currentWordIndex = 0;
+  score = 0;
+  answeredWords = [];
 
   // Hide start screen, show game screen
-  document.getElementById("startScreen").style.display = "none";
-  document.getElementById("gameScreen").style.display = "flex";
-  document.getElementById("gameOver").style.display = "none";
+  document.getElementById("start-screen").classList.add("d-none");
+  document.getElementById("game-screen").classList.remove("d-none");
+  document.getElementById("score").textContent = score;
 
-  loadQuestion();
+  loadWord();
 }
 
-// Load current question
-function loadQuestion() {
-  // Hide side section initially
-  document.getElementById("sideSection").style.display = "none";
+function loadWord() {
+  if (currentWordIndex >= currentSet.length) {
+    endGame();
+    return;
+  }
 
-  // Clear info display
-  document.getElementById("infoDisplay").style.display = "none";
-  document.getElementById("infoDisplay").classList.remove("active");
+  currentWord = currentSet[currentWordIndex];
+  hintsUsed = false;
 
   // Update progress
-  updateProgress();
+  document.getElementById("current-word").textContent = currentWordIndex + 1;
+  document.getElementById("progress-bar").style.width = `${
+    ((currentWordIndex + 1) / currentSet.length) * 100
+  }%`;
 
-  // Get current word
-  gameState.currentWord =
-    gameState.currentSet.words[gameState.currentWordIndex];
+  // Reset display
+  document.getElementById("phonetic-display").textContent =
+    "Listen to the word";
+  document.getElementById("info-display").classList.add("d-none");
+  document.getElementById("result-feedback").classList.add("d-none");
+  document.getElementById("next-btn").classList.add("d-none");
 
-  // Display pronunciation
-  document.getElementById("phonetic").textContent =
-    gameState.currentWord.pronunciation;
+  // Generate options
+  generateOptions();
 
-  // Shuffle and display options
-  const shuffledOptions = shuffleArray([...gameState.currentWord.options]);
-  displayOptions(shuffledOptions);
-
-  // Auto-pronounce after a short delay
-  setTimeout(() => pronounceWord(), 700);
+  // Auto-pronounce
+  setTimeout(() => pronounceWord(), 500);
 }
 
-// Display word options
-function displayOptions(options) {
-  const container = document.getElementById("wordOptions");
-  container.innerHTML = "";
+function generateOptions() {
+  const options = currentWord.options;
+  const optionsContainer = document.getElementById("options-container");
 
-  options.forEach((option) => {
+  // Clear previous options
+  optionsContainer.innerHTML = "";
+
+  options.forEach((option, index) => {
+    const col = document.createElement("div");
+    col.className = "col-12 col-sm-6";
+
     const button = document.createElement("button");
     button.className = "word-option";
     button.textContent = option;
-    button.onclick = () => checkAnswer(option, button);
-    container.appendChild(button);
+    button.addEventListener("click", function () {
+      checkAnswer(option, this);
+    });
+
+    col.appendChild(button);
+    optionsContainer.appendChild(col);
   });
 }
 
-// Check answer
-function checkAnswer(selected, buttonElement) {
-  const correct = selected === gameState.currentWord.word;
-  const allButtons = document.querySelectorAll(".word-option");
-
+function checkAnswer(selectedWord, buttonElement) {
   // Disable all buttons
-  allButtons.forEach((btn) => {
-    btn.disabled = true;
-    if (btn.textContent === gameState.currentWord.word) {
-      btn.classList.add("correct");
-    } else if (btn === buttonElement && !correct) {
-      btn.classList.add("incorrect");
-    }
-  });
+  const allButtons = document.querySelectorAll(".word-option");
+  allButtons.forEach((btn) => (btn.disabled = true));
 
-  // Update score if correct
-  if (correct) {
-    gameState.score++;
-    updateProgress();
+  const isCorrect = selectedWord === currentWord.correct;
+
+  if (isCorrect) {
+    buttonElement.classList.add("correct");
+    if (!hintsUsed) {
+      score += 10;
+    } else {
+      score += 5;
+    }
+    showResult(true);
+  } else {
+    buttonElement.classList.add("incorrect");
+    // Highlight correct answer
+    allButtons.forEach((btn) => {
+      if (btn.textContent === currentWord.correct) {
+        btn.classList.add("correct");
+      }
+    });
+    showResult(false);
   }
 
-  // Show side section with feedback
-  showResultFeedback(correct);
+  document.getElementById("score").textContent = score;
+  answeredWords.push({
+    word: currentWord.correct,
+    correct: isCorrect,
+  });
 }
 
-// Show result feedback
-function showResultFeedback(correct) {
-  const sideSection = document.getElementById("sideSection");
-  const icon = document.getElementById("resultIcon");
-  const text = document.getElementById("resultText");
-  const spelling = document.getElementById("correctSpelling");
+function showResult(isCorrect) {
+  const feedback = document.getElementById("result-feedback");
+  const icon = document.getElementById("result-icon");
+  const text = document.getElementById("result-text");
+  const spelling = document.getElementById("correct-spelling");
 
-  if (correct) {
+  feedback.classList.remove("d-none");
+
+  if (isCorrect) {
     icon.textContent = "✅";
-    text.textContent = "Excellent!";
-    spelling.textContent = "";
+    text.textContent = "Correct!";
+    spelling.textContent = "Well done!";
   } else {
     icon.textContent = "❌";
     text.textContent = "Not quite!";
-    spelling.textContent = `Correct: ${gameState.currentWord.word}`;
+    spelling.textContent = `Correct spelling: ${currentWord.correct}`;
   }
 
-  // Show car fact
-  const factText = document.getElementById("carFactText");
-  let availableFacts = CAR_FACTS.filter(
-    (f) => !gameState.usedCarFacts.includes(f)
-  );
-  if (availableFacts.length === 0) {
-    gameState.usedCarFacts = [];
-    availableFacts = CAR_FACTS;
-  }
-  const randomFact =
-    availableFacts[Math.floor(Math.random() * availableFacts.length)];
-  gameState.usedCarFacts.push(randomFact);
-  factText.textContent = randomFact;
-
-  // Show side section
-  sideSection.style.display = "flex";
+  // Show next button
+  document.getElementById("next-btn").classList.remove("d-none");
 }
 
-// Next question
-function nextQuestion() {
-  gameState.currentWordIndex++;
+function showHint(type) {
+  hintsUsed = true;
+  const infoDisplay = document.getElementById("info-display");
+  const infoContent = document.getElementById("info-content");
 
-  if (gameState.currentWordIndex >= 10) {
-    endGame();
-  } else {
-    loadQuestion();
-  }
-}
-
-// End game
-function endGame() {
-  document.getElementById("gameScreen").style.display = "none";
-  document.getElementById("gameOver").style.display = "flex";
-
-  const finalScore = gameState.score;
-  document.getElementById("finalScore").textContent = finalScore;
-
-  // Performance message and stars
-  let message, stars;
-  if (finalScore === 10) {
-    message = "Perfect! You're a spelling champion! 🏆";
-    stars = "⭐⭐⭐⭐⭐";
-  } else if (finalScore >= 8) {
-    message = "Excellent work! Almost perfect! 🌟";
-    stars = "⭐⭐⭐⭐";
-  } else if (finalScore >= 6) {
-    message = "Good job! Keep practicing! 👍";
-    stars = "⭐⭐⭐";
-  } else if (finalScore >= 4) {
-    message = "Not bad! You're improving! 📚";
-    stars = "⭐⭐";
-  } else {
-    message = "Keep trying! Practice makes perfect! 💪";
-    stars = "⭐";
+  let content = "";
+  switch (type) {
+    case "definition":
+      content = `<strong>📖 Definition:</strong> ${currentWord.definition}`;
+      break;
+    case "origin":
+      content = `<strong>🌍 Origin:</strong> ${currentWord.origin}`;
+      break;
+    case "example":
+      content = `<strong>💡 Example:</strong> "${currentWord.example}"`;
+      // Also speak the example
+      if ("speechSynthesis" in window) {
+        speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(currentWord.example);
+        utterance.rate = 0.9;
+        speechSynthesis.speak(utterance);
+      }
+      break;
+    case "partOfSpeech":
+      content = `<strong>🏷️ Part of Speech:</strong> ${currentWord.partOfSpeech}`;
+      break;
   }
 
-  document.getElementById("performanceMessage").textContent = message;
-  document.getElementById("starRating").textContent = stars;
+  infoContent.innerHTML = content;
+  infoDisplay.classList.remove("d-none");
 }
 
-// Back to menu
-function backToMenu() {
-  document.getElementById("startScreen").style.display = "flex";
-  document.getElementById("gameScreen").style.display = "none";
-  document.getElementById("gameOver").style.display = "none";
-}
-
-// Update progress
-function updateProgress() {
-  document.getElementById("currentQuestion").textContent =
-    gameState.currentWordIndex + 1;
-  document.getElementById("score").textContent = gameState.score;
-
-  // Update progress bar
-  const progress = ((gameState.currentWordIndex + 1) / 10) * 100;
-  document.getElementById("progressFill").style.width = progress + "%";
-}
-
-// Show info
-function showInfo(type) {
-  const display = document.getElementById("infoDisplay");
-  const word = gameState.currentWord;
-
-  const info = {
-    definition: `📖 Definition: ${word.definition}`,
-    origin: `🌍 Origin: ${word.origin}`,
-    partOfSpeech: `🏷️ Part of Speech: ${word.partOfSpeech}`,
-  };
-
-  display.textContent = info[type];
-  display.style.display = "block";
-  display.classList.add("active");
-}
-
-// Speak sentence (voice only, no text display)
-function speakSentence() {
-  if ("speechSynthesis" in window && gameState.currentWord) {
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-
-    // Create utterance with the sentence
-    const utterance = new SpeechSynthesisUtterance(
-      gameState.currentWord.sentence
-    );
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-
-    // Use selected voice if available
-    if (gameState.speechVoice) {
-      utterance.voice = gameState.speechVoice;
-    }
-
-    window.speechSynthesis.speak(utterance);
-
-    // Visual feedback that sentence is being spoken
-    const display = document.getElementById("infoDisplay");
-    display.textContent = "🗣️ Playing example sentence...";
-    display.style.display = "block";
-    display.classList.add("active");
-
-    // Clear the message after speech ends
-    utterance.onend = () => {
-      setTimeout(() => {
-        display.style.display = "none";
-        display.classList.remove("active");
-      }, 1000);
-    };
-  } else {
-    alert("Speech synthesis not supported in your browser.");
-  }
-}
-
-// Pronounce word
 function pronounceWord() {
-  if ("speechSynthesis" in window && gameState.currentWord) {
+  if ("speechSynthesis" in window) {
     // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
+    speechSynthesis.cancel();
 
-    // Create utterance
-    const utterance = new SpeechSynthesisUtterance(gameState.currentWord.word);
-    utterance.rate = 0.7; // Slower for clarity
+    const utterance = new SpeechSynthesisUtterance(currentWord.correct);
+    utterance.rate = 0.8;
     utterance.pitch = 1;
-    utterance.volume = 1;
 
-    // Use selected voice if available
-    if (gameState.speechVoice) {
-      utterance.voice = gameState.speechVoice;
-    }
+    document.getElementById("phonetic-display").textContent = "🔊 Playing...";
 
-    // Speak the word
-    window.speechSynthesis.speak(utterance);
-
-    // Optional: Speak it twice with a pause for spelling bee effect
     utterance.onend = () => {
-      setTimeout(() => {
-        const utterance2 = new SpeechSynthesisUtterance(
-          gameState.currentWord.word
-        );
-        utterance2.rate = 0.6; // Even slower second time
-        utterance2.pitch = 1;
-        utterance2.volume = 1;
-        if (gameState.speechVoice) {
-          utterance2.voice = gameState.speechVoice;
-        }
-        window.speechSynthesis.speak(utterance2);
-      }, 500);
+      document.getElementById("phonetic-display").textContent =
+        "Click to listen again";
     };
+
+    utterance.onerror = () => {
+      document.getElementById("phonetic-display").textContent =
+        "Audio error - try again";
+    };
+
+    speechSynthesis.speak(utterance);
   } else {
-    // Fallback message
-    alert(
-      "Speech synthesis not supported. The word is related to: " +
-        gameState.currentWord.definition
-    );
+    alert("Speech synthesis not supported in your browser");
   }
 }
 
-// Utility function to shuffle array
-function shuffleArray(array) {
-  const newArray = [...array];
-  for (let i = newArray.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+function nextWord() {
+  currentWordIndex++;
+  loadWord();
+}
+
+function backToMenu() {
+  if (confirm("Are you sure you want to exit? Your progress will be lost.")) {
+    location.reload();
   }
-  return newArray;
+}
+
+function endGame() {
+  // Hide game screen, show game over screen
+  document.getElementById("game-screen").classList.add("d-none");
+  document.getElementById("game-over").classList.remove("d-none");
+
+  // Display final score
+  document.getElementById("final-score").textContent = score;
+
+  // Calculate star rating and message
+  const percentage = (score / (currentSet.length * 10)) * 100;
+  let stars = "";
+  let message = "";
+
+  if (percentage >= 90) {
+    stars = "⭐⭐⭐⭐⭐";
+    message = "Outstanding! You're a spelling champion!";
+  } else if (percentage >= 80) {
+    stars = "⭐⭐⭐⭐";
+    message = "Excellent work! Almost perfect!";
+  } else if (percentage >= 70) {
+    stars = "⭐⭐⭐";
+    message = "Great job! Keep practicing!";
+  } else if (percentage >= 60) {
+    stars = "⭐⭐";
+    message = "Good effort! You're getting there!";
+  } else {
+    stars = "⭐";
+    message = "Keep practicing! You'll improve!";
+  }
+
+  document.getElementById("star-rating").textContent = stars;
+  document.getElementById("performance-message").textContent = message;
+
+  // Show word summary
+  const summaryDiv = document.getElementById("word-summary");
+  const correctCount = answeredWords.filter((w) => w.correct).length;
+  const incorrectCount = answeredWords.filter((w) => !w.correct).length;
+
+  summaryDiv.innerHTML = `
+            <h5>Your Results:</h5>
+            <p class="mb-1">✅ Correct: ${correctCount} words</p>
+            <p class="mb-0">❌ Incorrect: ${incorrectCount} words</p>
+        `;
 }
