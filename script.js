@@ -180,27 +180,43 @@ function showHint(type) {
   switch (type) {
     case "definition":
       content = `<strong>📖 Definition:</strong> ${currentWord.definition}`;
+      infoDisplay.classList.remove("d-none");
       break;
     case "origin":
       content = `<strong>🌍 Origin:</strong> ${currentWord.origin}`;
+      infoDisplay.classList.remove("d-none");
       break;
     case "example":
-      content = `<strong>💡 Example:</strong> "${currentWord.example}"`;
-      // Also speak the example
+      // Only play audio for example, don't show text
+      content = `<strong>💡 Example:</strong> <em>Playing example sentence...</em>`;
+      infoDisplay.classList.remove("d-none");
+
+      // Speak the example
       if ("speechSynthesis" in window) {
         speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(currentWord.example);
         utterance.rate = 0.9;
+        utterance.pitch = 1;
+
+        utterance.onend = () => {
+          // Update the display to show it's done playing
+          infoContent.innerHTML = `<strong>💡 Example:</strong> <em>Example played (click to hear again)</em>`;
+        };
+
+        utterance.onerror = () => {
+          infoContent.innerHTML = `<strong>💡 Example:</strong> <em>Audio error - try again</em>`;
+        };
+
         speechSynthesis.speak(utterance);
       }
       break;
     case "partOfSpeech":
       content = `<strong>🏷️ Part of Speech:</strong> ${currentWord.partOfSpeech}`;
+      infoDisplay.classList.remove("d-none");
       break;
   }
 
   infoContent.innerHTML = content;
-  infoDisplay.classList.remove("d-none");
 }
 
 function pronounceWord() {
@@ -280,8 +296,8 @@ function endGame() {
   const incorrectCount = answeredWords.filter((w) => !w.correct).length;
 
   summaryDiv.innerHTML = `
-            <h5>Your Results:</h5>
-            <p class="mb-1">✅ Correct: ${correctCount} words</p>
-            <p class="mb-0">❌ Incorrect: ${incorrectCount} words</p>
-        `;
+        <h5>Your Results:</h5>
+        <p class="mb-1">✅ Correct: ${correctCount} words</p>
+        <p class="mb-0">❌ Incorrect: ${incorrectCount} words</p>
+    `;
 }
